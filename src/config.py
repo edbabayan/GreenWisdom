@@ -10,3 +10,4 @@ class CFG:
     faiss_dir = data_dir / 'faiss_index'
 
     embedding_model = "text-embedding-3-large"
+    llm_model = "gpt-4o-mini"
