@@ -3,5 +3,6 @@ pandas==2.2.3
 openai==1.76.2
 langchain_community==0.3.23
 langchain-openai==0.3.14
+langgraph==0.4.1
 faiss-cpu==1.11.0
 loguru==0.7.3
