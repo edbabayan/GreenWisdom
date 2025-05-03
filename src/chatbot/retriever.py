@@ -1,6 +1,7 @@
 from typing import List, Tuple
 
 from loguru import logger
+from tavily import TavilyClient
 from langchain_community.vectorstores import FAISS
 from langchain_openai.embeddings import OpenAIEmbeddings
 
@@ -69,3 +70,34 @@ if __name__ == '__main__':
         print(f"\nResult {i}:")
         print(f"Cosine Similarity: {score:.4f}")
         print(f"Content: {text}")
+
+
+def web_search_tavily(query: str, max_results: int = 3) -> List[str]:
+    """
+    Perform a web search using the Tavily API and return a list of snippets.
+
+    Args:
+        query (str): The search query.
+        max_results (int): Number of top results to return.
+
+    Returns:
+        List[str]: A list of text snippets from the web.
+    """
+    try:
+        client = TavilyClient()
+
+        response = client.search(
+            query=query,
+            search_depth="advanced",
+            max_results=max_results
+        )
+
+        snippets = [res["content"] for res in response.get("results", [])[:max_results]]
+
+        logger.info(f"Retrieved {len(snippets)} web search results from Tavily for query: '{query}'")
+
+        return snippets
+
+    except Exception as e:
+        logger.error(f"Error during Tavily web search: {e}")
+        return []
