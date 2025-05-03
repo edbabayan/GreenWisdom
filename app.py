@@ -34,6 +34,19 @@ app.add_middleware(
     expose_headers=["Content-Type"],
 )
 
+@app.get("/api/history")
+def get_history():
+    """
+    Endpoint to get the conversation history.
+    """
+    if CFG.history_dir.exists():
+        with open(CFG.history_dir, "r") as f:
+            chat_history = json.load(f)
+        return chat_history
+    else:
+        return [{}]
+
+
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
