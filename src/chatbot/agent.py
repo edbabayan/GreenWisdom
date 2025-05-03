@@ -1,3 +1,6 @@
+from typing import Generator
+from langchain_core.outputs import ChatGenerationChunk
+from langchain_core.callbacks import StreamingStdOutCallbackHandler
 from langchain_openai.chat_models import ChatOpenAI
 from langgraph.graph import StateGraph, END
 from typing import TypedDict
@@ -12,7 +15,11 @@ class AgentState(TypedDict):
 
 class ChatAgent:
     def __init__(self):
-        self.llm = ChatOpenAI(model="gpt-4o-mini")
+        self.llm = ChatOpenAI(
+            model="gpt-4o-mini",
+            streaming=True,
+            callbacks=[StreamingStdOutCallbackHandler()]
+        )
         self.app = self._build_graph()
 
     def _answer_question(self, state: AgentState) -> AgentState:
@@ -29,6 +36,12 @@ class ChatAgent:
 
     def ask(self, query: str) -> AgentState:
         return self.app.invoke({"query": query})
+
+    def stream(self, query: str) -> Generator[str, None, None]:
+        for chunk in self.llm.stream(query):
+            if isinstance(chunk, ChatGenerationChunk):
+                yield chunk.message.content
+
 
 
 if __name__ == '__main__':

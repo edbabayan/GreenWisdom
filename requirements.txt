@@ -6,3 +6,5 @@ langchain-openai==0.3.14
 langgraph==0.4.1
 faiss-cpu==1.11.0
 loguru==0.7.3
+fastapi==0.115.12
+uvicorn==0.34.2
