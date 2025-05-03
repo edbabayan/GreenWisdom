@@ -46,6 +46,14 @@ def get_history():
     else:
         return [{}]
 
+@app.post("/api/clear")
+def delete_history():
+    """
+    Endpoint to delete the conversation history directory and its contents.
+    """
+    if CFG.history_dir.exists():
+        os.remove(CFG.history_dir)
+
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
