@@ -1,48 +1,125 @@
-from fastapi import FastAPI
-from fastapi.responses import StreamingResponse
-from fastapi.middleware.cors import CORSMiddleware
+import json
+import os
+
+from pydantic import BaseModel
 from dotenv import load_dotenv
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi.middleware.cors import CORSMiddleware
+from langchain_core.messages import HumanMessage, AIMessage
 
 from src.config import CFG
-from src.chatbot.agent import ChatAgent  # Adjust path to your agent module
+from src.chatbot.agent import graph, State
 
 
 # Load environment variables
 load_dotenv(dotenv_path=CFG.env_variable_file)
 
-# FastAPI app setup
+
+class AskRequest(BaseModel):
+    query: str
+
+
+# FastAPI app
 app = FastAPI()
 
-# Allow CORS for frontend
+
+# Allow CORS for frontend and WebSocket clients
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Restrict to specific origins in production
+    allow_origins=["*"],  # For testing, allow all origins, but restrict this in production
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["Content-Type"],
 )
 
-# Initialize the chat agent
-chat_agent = ChatAgent()
-
-@app.get("/")
-def root():
-    return {"message": "Welcome to the ChatBot API!"}
-
-
-@app.get("/stream_answer")
-def stream_response(query: str):
+@app.get("/api/history")
+def get_history():
     """
-    Streaming endpoint that sends data as Server-Sent Events (SSE).
-    The `query` parameter is passed to the ChatAgent for processing.
+    Endpoint to get the conversation history.
     """
+    if CFG.history_dir.exists():
+        with open(CFG.history_dir, "r") as f:
+            chat_history = json.load(f)
+        return chat_history
+    else:
+        return [{}]
 
-    return StreamingResponse(chat_agent.stream(query), media_type="text/event-stream")
+@app.post("/api/clear")
+def delete_history():
+    """
+    Endpoint to delete the conversation history directory and its contents.
+    """
+    if CFG.history_dir.exists():
+        os.remove(CFG.history_dir)
 
-@app.post("/ask")
-def ask_question(query: str):
-    """
-    Regular endpoint that gets a complete response from the ChatAgent.
-    """
-    response = chat_agent.ask(query)
-    return response
+
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    await websocket.accept()
+    try:
+        while True:
+            # Receive query from client
+            query = await websocket.receive_text()
+            query_text = json.loads(query)["message"]
+
+            # Load existing conversation state from history
+            state: State = {"messages": []}
+
+            if CFG.history_dir.exists():
+                with open(CFG.history_dir, "r") as f:
+                    chat_history = json.load(f)
+
+                # Reconstruct messages from history
+                for conversation in chat_history:
+                    state["messages"].append(HumanMessage(content=conversation["user"]))
+                    state["messages"].append(AIMessage(content=conversation["assistant"]))
+
+            # Add the new query to state
+            state["messages"].append(HumanMessage(content=query_text))
+
+            response = ""
+            # Process the query through the graph (streaming)
+            for event in graph.stream(state, stream_mode="messages"):
+                response += event[0].content
+                await websocket.send_text(event[0].content)
+
+            if CFG.history_dir.exists():
+                # Load existing conversation history
+                with open(CFG.history_dir, "r") as f:
+                    chat_history = json.load(f)
+
+                new_conversation = {
+                    "user": query_text,
+                    "assistant": response,
+                }
+
+                chat_history.append(new_conversation)
+
+                # Save the updated conversation history
+                with open(CFG.history_dir, "w") as f:
+                    json.dump(chat_history, f)
+            else:
+                # Save the conversation history
+                chat_history = [
+                    {
+                        "user": query_text,
+                        "assistant": response,
+                    }
+                ]
+
+                with open(CFG.history_dir, "w") as f:
+                    json.dump(chat_history, f)
+
+            # Send final answer
+            await websocket.send_text(event[0].content)
+
+    except WebSocketDisconnect:
+        print("Client disconnected")
+
+@app.post("/api/ask")
+def ask_question(request: AskRequest):
+    state: State = {"messages": [HumanMessage(content=request.query)]}
+
+    response = graph.invoke(state)
+    return {"answer": response['messages'][-1].content}
