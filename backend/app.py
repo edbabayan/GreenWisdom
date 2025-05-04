@@ -3,25 +3,24 @@ import os
 
 from pydantic import BaseModel
 from dotenv import load_dotenv
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from langchain_core.messages import HumanMessage, AIMessage
 
 from src.config import CFG
 from src.chatbot.agent import graph, State
 
-
 # Load environment variables
 load_dotenv(dotenv_path=CFG.env_variable_file)
 
 
 class AskRequest(BaseModel):
+    """Request model for the ask endpoint."""
     query: str
 
 
 # FastAPI app
 app = FastAPI()
-
 
 # Allow CORS for frontend and WebSocket clients
 app.add_middleware(
@@ -33,10 +32,15 @@ app.add_middleware(
     expose_headers=["Content-Type"],
 )
 
+
 @app.get("/api/history")
 def get_history():
     """
     Endpoint to get the conversation history.
+
+    Returns:
+        list: List of conversation objects with 'user' and 'assistant' fields,
+              or a list with empty object if no history exists.
     """
     if CFG.history_dir.exists():
         with open(CFG.history_dir, "r") as f:
@@ -45,10 +49,14 @@ def get_history():
     else:
         return [{}]
 
+
 @app.post("/api/clear")
 def delete_history():
     """
     Endpoint to delete the conversation history directory and its contents.
+
+    Returns:
+        None: Deletes the history file if it exists.
     """
     if CFG.history_dir.exists():
         os.remove(CFG.history_dir)
@@ -56,6 +64,18 @@ def delete_history():
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
+    """
+    WebSocket endpoint for real-time conversation with streaming responses.
+
+    Handles:
+    1. Loading existing conversation history
+    2. Processing new queries through the chatbot agent
+    3. Streaming responses back to the client
+    4. Saving updated conversation history
+
+    Args:
+        websocket: FastAPI WebSocket connection instance
+    """
     await websocket.accept()
     try:
         while True:
@@ -117,9 +137,24 @@ async def websocket_endpoint(websocket: WebSocket):
     except WebSocketDisconnect:
         print("Client disconnected")
 
+
 @app.post("/api/ask")
 def ask_question(request: AskRequest):
-    state: State = {"messages": [HumanMessage(content=request.query)]}
+    """
+    Endpoint for single question-answer interactions without streaming.
 
-    response = graph.invoke(state)
-    return {"answer": response['messages'][-1].content}
+    Args:
+        request: AskRequest object containing the user's query
+
+    Returns:
+        dict: Response containing the assistant's answer
+
+    Raises:
+        HTTPException: If there's an error processing the request
+    """
+    try:
+        state: State = {"messages": [HumanMessage(content=request.query)]}
+        response = graph.invoke(state)
+        return {"answer": response['messages'][-1].content}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error processing request: {str(e)}")

@@ -2,7 +2,7 @@ import os
 from typing import Annotated, TypedDict, List
 
 from dotenv import load_dotenv
-from langchain_core.messages import SystemMessage, HumanMessage, BaseMessage
+from langchain_core.messages import SystemMessage, BaseMessage
 from langchain_openai.chat_models import ChatOpenAI
 from langchain_tavily import TavilySearch
 from langgraph.graph.message import add_messages
