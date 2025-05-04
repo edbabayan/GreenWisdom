@@ -5,7 +5,7 @@ from pydantic import BaseModel
 from dotenv import load_dotenv
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from langchain_core.messages import HumanMessage
+from langchain_core.messages import HumanMessage, AIMessage
 
 from src.config import CFG
 from src.chatbot.agent import graph, State
@@ -63,8 +63,20 @@ async def websocket_endpoint(websocket: WebSocket):
             query = await websocket.receive_text()
             query_text = json.loads(query)["message"]
 
-            # Prepare the initial state for the agent
-            state: State = {"messages": [HumanMessage(content=query)]}
+            # Load existing conversation state from history
+            state: State = {"messages": []}
+
+            if CFG.history_dir.exists():
+                with open(CFG.history_dir, "r") as f:
+                    chat_history = json.load(f)
+
+                # Reconstruct messages from history
+                for conversation in chat_history:
+                    state["messages"].append(HumanMessage(content=conversation["user"]))
+                    state["messages"].append(AIMessage(content=conversation["assistant"]))
+
+            # Add the new query to state
+            state["messages"].append(HumanMessage(content=query_text))
 
             response = ""
             # Process the query through the graph (streaming)
@@ -104,7 +116,6 @@ async def websocket_endpoint(websocket: WebSocket):
 
     except WebSocketDisconnect:
         print("Client disconnected")
-
 
 @app.post("/api/ask")
 def ask_question(request: AskRequest):
