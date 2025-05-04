@@ -7,6 +7,9 @@ This chatbot uses LangGraph and LangChain to build an intelligent agent capable 
 - **FAISS Vector Database**: For storing and retrieving document embeddings
 - **Tavily Search**: For finding relevant content from the web when needed
 
+
+The bot also saves chat history to `history.json` for persistence and future reference.
+
 ## Environment Setup
 
 1. **Create and activate a Python virtual environment**:
