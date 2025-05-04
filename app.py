@@ -2,7 +2,6 @@ import json
 import os
 
 from pydantic import BaseModel
-
 from dotenv import load_dotenv
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
@@ -105,3 +104,11 @@ async def websocket_endpoint(websocket: WebSocket):
 
     except WebSocketDisconnect:
         print("Client disconnected")
+
+
+@app.post("/api/ask")
+def ask_question(request: AskRequest):
+    state: State = {"messages": [HumanMessage(content=request.query)]}
+
+    response = graph.invoke(state)
+    return {"answer": response['messages'][-1].content}
