@@ -12,3 +12,4 @@ class CFG:
 
     embedding_model = "text-embedding-3-large"
     llm_model = "gpt-4o-mini"
+    max_tavily_results = 3
