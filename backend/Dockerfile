@@ -21,6 +21,9 @@ COPY requirements.txt .
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Install uvicorn[standard] for WebSocket support
+RUN pip install --no-cache-dir 'uvicorn[standard]'
+
 # Copy the backend application code
 COPY . .
 
@@ -33,5 +36,4 @@ USER appuser
 EXPOSE 8000
 
 # Command to run the application
-# Adjust this based on your entry point (e.g., main.py, app.py)
 CMD ["python", "-m", "uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]
