@@ -3,7 +3,7 @@ import os
 
 from pydantic import BaseModel
 from dotenv import load_dotenv
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from langchain_core.messages import HumanMessage, AIMessage
 
@@ -148,8 +148,13 @@ def ask_question(request: AskRequest):
 
     Returns:
         dict: Response containing the assistant's answer
-    """
-    state: State = {"messages": [HumanMessage(content=request.query)]}
 
-    response = graph.invoke(state)
-    return {"answer": response['messages'][-1].content}
+    Raises:
+        HTTPException: If there's an error processing the request
+    """
+    try:
+        state: State = {"messages": [HumanMessage(content=request.query)]}
+        response = graph.invoke(state)
+        return {"answer": response['messages'][-1].content}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error processing request: {str(e)}")
