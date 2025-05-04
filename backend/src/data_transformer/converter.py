@@ -35,7 +35,7 @@ def create_faiss_index_from_csv(csv_dir: Path, faiss_dir: Path):
 
 
 if __name__ == '__main__':
-    from src.config import CFG
+    from backend.src.config import CFG
 
     # Load environment variables
     load_dotenv(dotenv_path=CFG.env_variable_file)
