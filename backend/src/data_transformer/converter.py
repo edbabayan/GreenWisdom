@@ -15,22 +15,21 @@ def create_faiss_index_from_csv(csv_dir: Path, faiss_dir: Path):
         csv_dir (Path): Path to the input CSV file.
         faiss_dir (Path): Directory where the FAISS index will be saved.
     """
-    # Read the data
+    # Read the data from CSV
     data = pd.read_csv(csv_dir)
 
-    # Initialize the OpenAI embeddings
+    # Initialize OpenAI embeddings with the configured model
     embedding_function = OpenAIEmbeddings(model=CFG.embedding_model)
 
-    # Prepare the texts
+    # Extract texts from the 'context' column
     texts = data['context'].tolist()
 
     logger.info("Creating FAISS vector store...")
 
-    # Create FAISS vector store
+    # Create and save FAISS vector store
     db = FAISS.from_texts(texts, embedding=embedding_function)
-
-    # Save the FAISS index
     db.save_local(str(faiss_dir))
+
     logger.success(f"FAISS index saved to {faiss_dir}")
 
 
@@ -40,4 +39,5 @@ if __name__ == '__main__':
     # Load environment variables
     load_dotenv(dotenv_path=CFG.env_variable_file)
 
+    # Create FAISS index
     create_faiss_index_from_csv(CFG.csv_dir, CFG.faiss_dir)
